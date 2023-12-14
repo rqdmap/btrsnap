@@ -1,0 +1,14 @@
+ssh:
+  - ...
+
+targets:
+  home:
+    from: /home/rqdmap
+    to: /mnt/archlinux/
+    rules:
+        # 粒度, 单位等
+      - period: ?...
+        cnt: 7
+      - period: ?...
+        cnt: 7
+
