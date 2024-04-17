@@ -1,47 +1,45 @@
-# 快照配置
+# Local snapshot rules
 snap:
-  - path: /home/rqdmap        # 默认存储在 /home/snapshots/ 目录下
+  - name: home
+    path: /home/rqdmap
     rules:
-      - period: 1h            # 自动轮转, 仅保存最近 48 个
+      - period: 1h
         cnt: 48
       - period: 2d
         cnt: 7
-      - period: 7d           # 不自动轮转, 持久存储每隔 14 天的镜像
-        sync:                 # 需要同步到远端
-          path: /mnt/archlinux
-  - path: /data/rqdmap
-    rules:
-      - period: 1h            # 自动轮转, 仅保存最近 48 个
-        cnt: 48
-      - period: 2d
-        cnt: 7
-      - period: 7d           # 不自动轮转, 持久存储每隔 14 天的镜像
-        sync:                 # 需要同步到远端
-          path: /mnt/archlinux
-  - path: /real_root/@
-    rules:
-      - period: 14d
-        sync:
-          path: /mnt/archlinux
+      - period: 7d
+    sync:
+      method: local                 # local, ssh, file
+      path: /mnt/archlinux/home
 
-# 远端 ssh 配置, 选取其中联通的一个目标
-ssh:
-  identity_file: /home/rqdmap/.ssh/id_ed25519
+  - name: data
+    path: /data/rqdmap
+    rules:
+      - period: 1h
+        cnt: 48
+      - period: 2d
+        cnt: 7
+      - period: 7d
+    sync:
+      method: local
+      path: /mnt/archlinux/data
+
+sync:
   target:
     - host: mac.rqdmap.top
+      port: 22
       user: root
-    - host: $TARGET_IPV6      # 支持引入环境变量
+      identity_file: /home/rqdmap/.ssh/id_ed25519
+    - host: $TARGET_IPV6          # Support ENV var
+      port: 22
       user: root
+      identity_file: /home/rqdmap/.ssh/id_ed25519
     - host: localhost
+      port: 60022
       user: root
-      port: 60078
+      identity_file: /home/rqdmap/.ssh/id_ed25519
+  pre_hook:
+    - mount ...
+  post_hook:
+    - umount ...
 
-
-# 远端同步配置
-sync:
-  use_file: false             # false:  使用 stdout 流传输;
-                              # true:   将 snap diff 输出到文件后传输
-  # pre_hook:
-  #   - mount /dev/sda1
-  # post_hook:
-  #   - umount /dev/sda1

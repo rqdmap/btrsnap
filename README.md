@@ -1,9 +1,13 @@
-## Btrsnap 快照备份系统
+## Btrsnap: Btrfs Snapshot Backup Tools
 
-使用 Python 封装底层 btrfs 快照创建/发送/接收指令, 支持基于配置文件灵活调整快照策略.
+## Features
 
-## 功能
+- Snapshot locally; 
 
-- 本地快照
+- Maintain a rolling snapshot list
+
+- Send snapshots to remote backup devices
+
+
 
 

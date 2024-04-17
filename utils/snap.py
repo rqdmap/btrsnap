@@ -1,75 +1,88 @@
 import logging
 import os
 from datetime import datetime
-from utils.common import do_cmd, get_base_name, get_local_snap, get_snap_path
 
-# 将 s, m, h, d 等单位统一转换为秒
-def format_period(period: str) -> int:
-    if period[-1] == 's':
-        return int(period[:-1])
-    elif period[-1] == 'm':
-        return int(period[:-1]) * 60
-    elif period[-1] == 'h':
-        return int(period[:-1]) * 60 * 60
-    elif period[-1] == 'd':
-        return int(period[:-1]) * 60 * 60 * 24
+from utils.common import confirm, format_period, subvolume_to_subdir, read_from_subdir, green, red
+import utils.store as store
 
-    raise Exception('period must be in m, h, d')
 
-# 检查目录下的最新快照时间是否已经超过周期
-def check_period(snap_path: str, period: str):
-    if not os.path.isdir(snap_path):
-        return True
+class SnapItem():
+    # Read config from yaml
+    def __init__(self, config: dict):
+        self.name = config['name']
+        self.local_path = config['path']                    # Raw subvolumn path
+        self.rules = config['rules']
+        self.subdir = subvolume_to_subdir(self.local_path)  # Snapshots directory
+        self.sync_rules = config['sync']
 
-    snaps = sorted(os.listdir(snap_path))
-    snaps.reverse()
+    # Snap locally
+    def snap(self):
+        name = self.name + '_' + datetime.now().strftime("%Y%m%d%H%M%S")
+        store.snap(self.local_path, self.subdir + '/' + name)
 
-    if len(snaps) == 0:
-        return True
+    # Rolltate local snap list
+    def roll(self):
+        # Traverse from the latest to the oldest
+        snaps = read_from_subdir(self.subdir, reverse=True)
+        valid = [False for _ in range(len(snaps))]
 
-    period_val = format_period(period)
-    last_snap_time = snaps[0].split('_')[-1]
-    dt = datetime.strptime(last_snap_time, "%Y%m%d%H%M%S")
-    res = datetime.now() - dt
-    if res.total_seconds() > period_val:
-        return True
-    return False
+        for rule in self.rules:
+            period = rule['period']
+            assert period
+            period = format_period(rule['period'])
+            cnt = rule.get('cnt', 0x3f3f3f3f)
 
-def snap(path: str, period: str, cnt = -1):
-    # 基本校验
-    if not path.startswith('/'):
-        raise Exception(f'path "{path}" must be absolute')
-    if path.endswith('/'):
-        path = path[:-1]
-    if path.count('/') < 2:
-        raise Exception(f'path "{path}" must have secondary directory')
+            prev = snaps[0]
+            valid[0] = True
+            cnt -= 1
 
-    base_path = '/'.join(path.split('/')[:-1])
-    snap_path = get_snap_path(path, period)
+            for i in range(0, len(snaps)):
+                if i == 0 or cnt <= 0:
+                    continue
 
-    # 时间周期检查
-    if not check_period(snap_path, period):
-        logging.info(f'period {period} on {base_path} not reached')
-        return 
+                now = snaps[i]
+                now_time = datetime.strptime(now.split('_')[-1], "%Y%m%d%H%M%S")
+                pre_time = datetime.strptime(prev.split('_')[-1], "%Y%m%d%H%M%S")
 
-    # 快照
-    base_name = get_base_name(path)
-    snap_name = f'{base_name}_{datetime.now().strftime("%Y%m%d%H%M%S")}'
+                if (pre_time - now_time).total_seconds() > period:
+                    prev = now
+                    valid[i] = True
+                    cnt -= 1
 
-    cmd = f'mkdir -p {snap_path}'
-    do_cmd(cmd)
+        res = list(zip(snaps, valid))
+        display_roll_res(res)
 
-    cmd = f'btrfs subvolume snapshot -r {path} {snap_path}/{snap_name}'
-    do_cmd(cmd)
+        if confirm():
+            for i in filter(lambda x: not x[1], res):
+                store.delete_snap(self.subdir + '/' + i[0])
 
-    if cnt == -1:
-        return 
 
-    # 检查目录下快照数量, 删除多余的旧快照
-    snaps = get_local_snap(snap_path)
-    if len(snaps) == 0:
-        raise Exception(f'snap_path "{snap_path}" is empty')
-    for i in range(cnt, len(snaps)):
-        cmd = f'btrfs subvolume delete {snap_path}/{snaps[i]}'
-        do_cmd(cmd)
+def display_roll_res(res):
+    def col():
+        return '        |'
 
+    def row():
+        return '         ---'
+
+    length = len(res)
+    print(green(res[0][0]))
+
+    for i in range(1, length):
+        reserved = res[i][1]
+        print(col())
+
+        now = res[i][0]
+
+        latest_time = datetime.strptime(res[0][0].split('_')[-1], "%Y%m%d%H%M%S")
+        now_time = datetime.strptime(now.split('_')[-1], "%Y%m%d%H%M%S")
+        difference = latest_time - now_time
+        days = difference.days
+        hours, remainder = divmod(difference.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        formatted_difference = f"{days} days {hours} hours {minutes} minutes"
+
+        if reserved:
+            print(green(now), formatted_difference, "ago")
+        else:
+            print(row(), red(now), formatted_difference, "ago")
+    print()
