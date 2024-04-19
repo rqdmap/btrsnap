@@ -55,5 +55,8 @@ def confirm():
 def green(s):
     return '\033[32m' + s + '\033[0m'
 
+def yellow(s):
+    return '\033[33m' + s + '\033[0m'
+
 def red(s):
     return '\033[31m' + s + '\033[0m'

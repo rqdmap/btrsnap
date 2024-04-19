@@ -3,9 +3,7 @@ snap:
   - name: home
     path: /home/rqdmap
     rules:
-      - period: 1h
-        cnt: 48
-      - period: 2d
+      - period: 1d
         cnt: 7
       - period: 7d
     sync:
@@ -15,14 +13,20 @@ snap:
   - name: data
     path: /data/rqdmap
     rules:
-      - period: 1h
-        cnt: 48
-      - period: 2d
+      - period: 1d
         cnt: 7
       - period: 7d
     sync:
       method: local
       path: /mnt/archlinux/data
+
+  - name: root
+    path: /real_root/@
+    rules:
+      - period: 1d
+    sync:
+      method: local
+      path: /mnt/archlinux/root
 
 sync:
   target:

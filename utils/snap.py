@@ -13,7 +13,7 @@ class SnapItem():
         self.local_path = config['path']                    # Raw subvolumn path
         self.rules = config['rules']
         self.subdir = subvolume_to_subdir(self.local_path)  # Snapshots directory
-        self.sync_rules = config['sync']
+        self.sync_rules = config.get('sync', {})
 
     # Snap locally
     def snap(self):

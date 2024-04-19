@@ -30,7 +30,7 @@ def sync_snap_local(src: str, dst: str):
 
     prev_snap = None
     idx = -1
-    flag = False
+    flag = True if len(dst_list) == 0 else False
     if src_list[0] in dst_list:
         for i in range(1, len(src_list)):
             now = src_list[i]
